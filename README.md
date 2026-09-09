@@ -52,6 +52,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
   --ttf BIZUDMincho-Regular.ttf \
   --fallback-ttf "NotoSansJP[wght].ttf" \
   --fallback-ttf "NotoSansSC[wght].ttf" \
+  --fallback-ttf "NotoSansKR[wght].ttf" \
   --ref /path/to/misans-demibold \
   --out out/
 ```
@@ -59,7 +60,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 `out/BIZUDMincho-Regular-20.xtf` と `out/BIZUDMincho-Regular-24.xtf` ができます（1 サイズ 1 分ほど）。
 標準エラー出力に、どのフォントから何グリフ取ったかが出ます。
 
-BIZ UD 系フォント・Noto Sans JP / SC は [Google Fonts](https://github.com/google/fonts/tree/main/ofl) から取得できます（いずれも SIL OFL 1.1）。
+BIZ UD 系フォント・Noto Sans JP / SC / KR は [Google Fonts](https://github.com/google/fonts/tree/main/ofl) から取得できます（いずれも SIL OFL 1.1）。
 `--fallback-ttf` を省略すると、BIZ UD に無い字は参照パッケージ（MiSans）のビットマップになります。
 
 ### 3. 端末に入れる
@@ -110,10 +111,10 @@ U+3042 あ  glyph #3004  w=20 h=18 xshift=0 yshift=0
 
 ## 生成した .xtf のライセンスについて
 
-- BIZ UDGothic / BIZ UDMincho、Noto Sans JP / SC はいずれも **SIL Open Font License 1.1** です。ビットマップへの変換や
+- BIZ UDGothic / BIZ UDMincho、Noto Sans JP / SC / KR はいずれも **SIL Open Font License 1.1** です。ビットマップへの変換や
   サブセット化は OFL が認める「改変版」にあたり、自分の端末で使う分には制約はありません
 - 改変版を**配布**する場合は、OFL の本文と元フォントの著作権表示を同梱し、フォント単体で販売しないでください。
-  BIZ UD には Reserved Font Name の宣言がなく、Noto Sans JP / SC の Reserved Font Name は `Source` だけなので、
+  BIZ UD には Reserved Font Name の宣言がなく、Noto Sans JP / SC / KR の Reserved Font Name は `Source` だけなので、
   `BIZUDMincho-20.xtf` のような名前はそのまま使えます
 - `--fallback-ttf` を指定せずに作った .xtf には、参照パッケージ（MiSans, Xiaomi）のビットマップが混ざります。
   配布するなら Noto Sans などの OFL フォントをフォールバックに指定するか、`--no-ref-fallback` を付けてください
