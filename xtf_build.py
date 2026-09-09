@@ -78,15 +78,31 @@ def parse_xtf(d):
 # ---------------------------------------------------------------- ラスタライズ
 
 class Rasterizer:
-    def __init__(self, ttf):
+    """1 本の TTF/OTF。fallbacks に渡した Rasterizer を順に試す。"""
+
+    def __init__(self, ttf, fallbacks=()):
         self.face = freetype.Face(ttf)
+        self.name = os.path.basename(ttf)
+        self.fallbacks = list(fallbacks)
 
     def set_px(self, px):
         self.face.set_pixel_sizes(0, px)
+        for fb in self.fallbacks:
+            fb.set_px(px)
 
     def slot(self, cp, cw, ch, slot_len, baseline, h_byte):
-        """1 コードポイントを cw×ch の 1bpp セルに置き、スロット bytes を返す。
-        フォントにグリフが無ければ None。"""
+        """1 コードポイントを cw×ch の 1bpp セルに置き、(スロット bytes, 使ったフォント名) を返す。
+        どのフォントにもグリフが無ければ (None, None)。"""
+        s = self._render(cp, cw, ch, slot_len, baseline, h_byte)
+        if s is not None:
+            return s, self.name
+        for fb in self.fallbacks:
+            s, who = fb.slot(cp, cw, ch, slot_len, baseline, h_byte)
+            if s is not None:
+                return s, who
+        return None, None
+
+    def _render(self, cp, cw, ch, slot_len, baseline, h_byte):
         gi = self.face.get_char_index(cp)
         if gi == 0:
             return None
@@ -124,30 +140,33 @@ class Rasterizer:
 
 # ---------------------------------------------------------------- 生成
 
-def build_xtf(src, ras, px, baseline, log):
+def build_xtf(src, ras, px, baseline, log, keep_ref=True):
     """参照 xtf(bytes) と同じ集合で新しい xtf(bytes) を返す。mapping も返す。"""
     info = parse_xtf(src)
     cw, ch, slot, bmp_off = info['cw'], info['ch'], info['slot'], info['bmp_off']
     ras.set_px(px)
     out = bytearray(src)
     mapping = {}
-    missing = 0
+    counts = {}
     for f, c, s in info['ivs']:
         for k in range(c):
             g, cp = s + k, f + k
             p = bmp_off + g * slot
             orig = bytes(src[p:p + slot])
-            new = ras.slot(cp, cw, ch, slot, baseline, orig[1])
+            new, who = ras.slot(cp, cw, ch, slot, baseline, orig[1])
             if new is None:
-                missing += 1
-                new = orig
+                if keep_ref:
+                    new, who = orig, '(参照パッケージのビットマップ)'
+                else:
+                    new, who = orig[:4] + bytes(slot - 4), '(空白)'
+            counts[who] = counts.get(who, 0) + 1
             out[p:p + slot] = new
             mapping.setdefault(orig, new)
     # ASCII 高速参照表（先頭 95 グリフの送り幅）
     a = info['ascii_off']
     for g in range(95):
         out[a + g] = out[bmp_off + g * slot]
-    log(f'  {px}px: {info["n"] - missing} グリフ差し替え / {missing} グリフはフォントに無いため参照側を流用')
+    log(f'  {px}px: ' + ' / '.join(f'{k} {v}' for k, v in counts.items()))
     return bytes(out), mapping, slot
 
 
@@ -180,6 +199,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--ttf', required=True, help='元にする TTF/OTF')
     ap.add_argument('--ref', required=True, help='参照パッケージ（system_fonts/<id>/ フォルダ か .xtfont）')
+    ap.add_argument('--fallback-ttf', action='append', default=[], metavar='TTF',
+                    help='--ttf に無い文字をこのフォントで補う。複数指定可（指定順に試す）。'
+                         '例: --fallback-ttf NotoSansJP[wght].ttf --fallback-ttf NotoSansSC[wght].ttf')
+    ap.add_argument('--no-ref-fallback', action='store_true',
+                    help='どのフォントにも無い文字を、参照パッケージのビットマップではなく空白にする'
+                         '（配布物を参照フォントに依存させたくない場合）')
     ap.add_argument('--out', default='out', help='出力先フォルダ')
     ap.add_argument('--name', default=None, help='読書用 .xtf のファイル名の元（既定: TTF のファイル名）')
     ap.add_argument('--baseline-small', type=int, default=17, help='20px セルのベースライン行（既定 17）')
@@ -194,7 +219,7 @@ def main():
     log = lambda s: print(s, file=sys.stderr)
     name = args.name or os.path.splitext(os.path.basename(args.ttf))[0]
     ref = load_reference(args.ref)
-    ras = Rasterizer(args.ttf)
+    ras = Rasterizer(args.ttf, [Rasterizer(fb) for fb in args.fallback_ttf])
     os.makedirs(args.out, exist_ok=True)
 
     results = {}
@@ -202,7 +227,7 @@ def main():
                                    ('system_medium', 24, args.baseline_medium, '24')):
         src = ref[f'{role}.xtf']
         log(f'{role}:')
-        new, mapping, slot = build_xtf(src, ras, px, base, log)
+        new, mapping, slot = build_xtf(src, ras, px, base, log, keep_ref=not args.no_ref_fallback)
         results[role] = (src, new, mapping, slot)
         fn = os.path.join(args.out, f'{name}-{suffix}.xtf')
         open(fn, 'wb').write(new)

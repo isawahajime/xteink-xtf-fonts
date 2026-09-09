@@ -22,8 +22,9 @@ Xteink X4 Pro には日本語の書体が入っておらず、純正のフォン
 ビットマップだけを FreeType でラスタライズしたものに差し替える**という方法をとっています。
 集合を変えないので、パッケージ内の各種ハッシュを再計算する必要がありません。
 
-参照フォントに無いグリフ（32,129 字。主に簡体字と記号）は参照側のビットマップがそのまま残るので、
-豆腐にはなりません。変換元フォントが持っていない字は MiSans の字形で表示されます。
+変換元フォントに無いグリフ（BIZ UD の場合 32,129 字。主に簡体字と記号）は、`--fallback-ttf` で指定した
+フォントから順に補います。どのフォントにも無い字は参照側（MiSans）のビットマップがそのまま残るので
+豆腐にはなりません（`--no-ref-fallback` を付けると空白にします）。
 
 フォーマットの詳細は [FORMAT.md](FORMAT.md) を参照してください。
 
@@ -49,13 +50,17 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 
 ./venv/bin/python xtf_build.py \
   --ttf BIZUDMincho-Regular.ttf \
+  --fallback-ttf "NotoSansJP[wght].ttf" \
+  --fallback-ttf "NotoSansSC[wght].ttf" \
   --ref /path/to/misans-demibold \
   --out out/
 ```
 
-`out/BIZUDMincho-Regular-20.xtf` と `out/BIZUDMincho-Regular-24.xtf` ができます（1 サイズ 30 秒ほど）。
+`out/BIZUDMincho-Regular-20.xtf` と `out/BIZUDMincho-Regular-24.xtf` ができます（1 サイズ 1 分ほど）。
+標準エラー出力に、どのフォントから何グリフ取ったかが出ます。
 
-BIZ UD 系フォントは [Google Fonts](https://github.com/google/fonts/tree/main/ofl) から取得できます（SIL OFL）。
+BIZ UD 系フォント・Noto Sans JP / SC は [Google Fonts](https://github.com/google/fonts/tree/main/ofl) から取得できます（いずれも SIL OFL 1.1）。
+`--fallback-ttf` を省略すると、BIZ UD に無い字は参照パッケージ（MiSans）のビットマップになります。
 
 ### 3. 端末に入れる
 
@@ -102,6 +107,16 @@ U+3042 あ  glyph #3004  w=20 h=18 xshift=0 yshift=0
 - ヘッダ内の 8 バイト ID など、正体不明のフィールドは参照側の値をそのまま使っています（実機で動作しています）
 - 自己責任でお使いください。フォントが読めない場合、純正ファームは組み込みフォントにフォールバックします
 - MiSans / BIZ UD などフォント自体のライセンスは各フォントの規約に従ってください。このリポジトリにはフォントファイルを含みません
+
+## 生成した .xtf のライセンスについて
+
+- BIZ UDGothic / BIZ UDMincho、Noto Sans JP / SC はいずれも **SIL Open Font License 1.1** です。ビットマップへの変換や
+  サブセット化は OFL が認める「改変版」にあたり、自分の端末で使う分には制約はありません
+- 改変版を**配布**する場合は、OFL の本文と元フォントの著作権表示を同梱し、フォント単体で販売しないでください。
+  BIZ UD には Reserved Font Name の宣言がなく、Noto Sans JP / SC の Reserved Font Name は `Source` だけなので、
+  `BIZUDMincho-20.xtf` のような名前はそのまま使えます
+- `--fallback-ttf` を指定せずに作った .xtf には、参照パッケージ（MiSans, Xiaomi）のビットマップが混ざります。
+  配布するなら Noto Sans などの OFL フォントをフォールバックに指定するか、`--no-ref-fallback` を付けてください
 
 ## License
 
