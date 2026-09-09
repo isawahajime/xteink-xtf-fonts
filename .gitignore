@@ -1,0 +1,10 @@
+out/
+*.xtf
+*.xtfp
+*.xtfont
+*.xic
+*.ttf
+*.otf
+__pycache__/
+.venv/
+venv/
